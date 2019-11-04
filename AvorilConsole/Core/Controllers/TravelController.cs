@@ -44,23 +44,7 @@ namespace AvorilConsole.Core.Input.Controllers
 
             return _Commands;
         }
-
-        public override void DoCommand(PlayerControllerAction action)
-        {
-            var command = Commands.GetValueOrDefault(action.FunctionName);
-
-            // Если подобной команды не существует
-            if(command == null)
-            {
-                throw new SystemException("TravelController не имеет метода " + action.FunctionName);
-            }
-            else
-            {
-                Console.WriteLine("TravelController: Invoke " + action.FunctionName);
-                command.Invoke(action.Argument);
-            }
-        }
-        
+ 
         // Перемещаем лагерь
         private void Move(object Argument)
         {
@@ -74,6 +58,7 @@ namespace AvorilConsole.Core.Input.Controllers
 
             CurrentBlock = nextBlock;
             Camp.SetWorldPosition(nextBlock.Position);
+            Camp.Hero.WorldTurn();
         }
     }
 }

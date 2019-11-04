@@ -14,18 +14,24 @@ namespace AvorilConsole
 
         public static void SetDefaultPrinter(IPrinter _printer)
         {
-            if(printer == null)
+            if(_printer == null)
                 throw new SystemException("Null printer in Log.cs - setdefaultprinter method");
 
             printer = _printer;
         }
 
-        public static void print(object info)
+        public static void print(object info = null)
         {
             if (printer == null)
                 throw new SystemException("Null printer in Log.cs - print method");
-
-            printer.Print(info);
+            if(info == null)
+            {
+                printer.Print("--");
+            }
+            else
+            {
+                printer.Print(info);
+            }
         }
 
         public static void print(object info, IPrinter anotherPrinter)
@@ -43,6 +49,7 @@ namespace AvorilConsole
         public void Print(object info)
         {
             Console.WriteLine(info);
+            Console.WriteLine();
         }
     }
 }

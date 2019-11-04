@@ -128,5 +128,20 @@ namespace AvorilConsole.Core
             return Position.ToString();
         }
     }
+    
+
+    public class WorldBlockEvent
+    {
+        public enum WorldBlockEventState
+        {
+            IntroMonolog = 1,
+            IntroDialogs = 2,
+            Battle = 3,
+            EndMonolog = 4,
+            FreeTime = 5
+
+        }
+    
+    }
 
 }

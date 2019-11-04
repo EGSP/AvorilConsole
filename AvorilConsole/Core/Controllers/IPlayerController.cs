@@ -20,7 +20,8 @@ namespace AvorilConsole.Core.Input.Controllers
     // Типы контроллеров
     public enum PlayerControllerType
     {
-        TravelController
+        TravelController,
+        BattleController
     }
 
     public delegate void ControllerActionDelegate(object Argument);

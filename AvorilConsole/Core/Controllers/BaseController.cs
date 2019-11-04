@@ -10,6 +10,9 @@ namespace AvorilConsole.Core.Input.Controllers
     {
         public BaseController(Camp _Camp)
         {
+            if (_Camp == null)
+                throw new System.Exception("Null _Camp in ControllerConstructor");
+
             Camp = _Camp;
 
             Commands = InitializeCommands();
@@ -21,7 +24,21 @@ namespace AvorilConsole.Core.Input.Controllers
         
         public Dictionary<string, ControllerActionDelegate> Commands { get; protected set; }
 
-        public abstract void DoCommand(PlayerControllerAction action);
+        public virtual void DoCommand(PlayerControllerAction action)
+        {
+            var command = Commands.GetValueOrDefault(action.FunctionName);
+
+            // Если подобной команды не существует
+            if (command == null)
+            {
+                throw new System.Exception(Type.ToString()+" не имеет метода " + action.FunctionName);
+            }
+            else
+            {
+                Log.print(Type.ToString() + ": Invoke " + action.FunctionName);
+                command.Invoke(action.Argument);
+            }
+        }
 
         protected abstract Dictionary<string, ControllerActionDelegate> InitializeCommands();
 

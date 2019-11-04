@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using AvorilConsole.Entities.EntityInterfaces;
 using AvorilConsole.Entities.Factory;
 
@@ -19,6 +20,24 @@ namespace AvorilConsole.Entities
             BaseEffects = _BaseEntityPattern.AttackEntity.BaseEffects;
             EmmitableEffects = _BaseEntityPattern.AttackEntity.EmmitableEffects;
             IsStunned = _BaseEntityPattern.AttackEntity.IsStunned;
+        }
+
+        // Вызывается при совершении "хода"
+        public virtual void WorldTurn()
+        {
+            
+        }
+
+        public virtual void BattleTurn()
+        {
+            // Invoke all active EmmitableEffects
+            for(int i = 0; i < EmmitableEffects.Count; i++)
+            {
+                var eff = EmmitableEffects[i];
+                eff.Emmit(this);
+            }
+            // Remove all deactivated EmmitableEffects 
+            EmmitableEffects.RemoveAll(x => x.Steps <= 0);
         }
 
         #region ILifeEntity
@@ -103,6 +122,7 @@ namespace AvorilConsole.Entities
             }
 
             // ADD INVENTORY EFFECTS
+            throw new System.NotImplementedException();
 
             return emmits;
         }
@@ -111,6 +131,11 @@ namespace AvorilConsole.Entities
         {
             if(_Effects != null || _Effects.Count > 0)
                 EmmitableEffects.AddRange(_Effects);
+        }
+
+        public void ComputeDamage(AttackInfo _EnemyAttackInfo)
+        {
+            Damage(_EnemyAttackInfo.DamageCount);
         }
         #endregion
     }

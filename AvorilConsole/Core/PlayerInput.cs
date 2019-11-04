@@ -24,9 +24,10 @@ namespace AvorilConsole.Core.Input
         }
 
         public static PlayerInput Instance { get; private set; }
-
-        private IPlayerController PlayerController; // Текущий обработчик управления игрока
-        private Queue<PlayerControllerAction> PlayerControllerActions; // Очередь действий для контроллера
+        // Текущий обработчик управления игрока
+        private IPlayerController PlayerController;
+        // Очередь действий для контроллера
+        private Queue<PlayerControllerAction> PlayerControllerActions;
 
         public void Update()
         {

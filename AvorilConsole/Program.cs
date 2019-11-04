@@ -5,6 +5,8 @@ using AvorilConsole.Entities;
 using AvorilConsole.Entities.EntityInterfaces;
 using AvorilConsole.Entities.Factory;
 using AvorilConsole.Core;
+using AvorilConsole.Items;
+using AvorilConsole.Items.Factory;
 using System.Collections.Generic;
 
 public struct Vector2
@@ -36,25 +38,28 @@ namespace AvorilConsole
             // Устанавливаем стандартный способ вывода информации ЛОГ
             Log.SetDefaultPrinter(new DesktopConsolePrinter());
 
-            var gameManager = new GameManager();
+            FileSystemManager.CheckAllFoldersExistance();
+            EntityFactory.Initialize(FileSystemManager.BaseEnemiesPath);
 
-            var travelController = new TravelController(new Camp(null,
-                new Hero(new EntityFactory.BaseEntityPattern(
-                    EntityFactory.CreateLifeEntity(LifeState.Alive, _MaxHealth: 10, _Health: 9),
-                    EntityFactory.CreateAttackEnitity(_HitDamage: 1, _NextAttack: new AttackStructure(), _BaseEffects: null, _IsStunned: false))),
-                new Vector2(0, 0)));
+            //var gameManager = new GameManager();
 
-            var playerInput = new PlayerInput(travelController);
+            //var travelController = new TravelController(new Camp(null,
+            //    new Hero(new EntityFactory.BaseEntityPattern(
+            //        EntityFactory.CreateLifeEntity(LifeState.Alive, _MaxHealth: 10, _Health: 9),
+            //        EntityFactory.CreateAttackEnitity(_HitDamage: 1, _NextAttack: new AttackStructure(), _BaseEffects: null, _IsStunned: false))),
+            //    new Vector2(0, 0)));
 
-            for (int x = 0; x < 6; x++)
-                playerInput.AddPlayerControllerAction(new PlayerControllerAction(PlayerControllerType.TravelController, "Move", WorldBlock.WorldBlockSide.Right));
+            //var playerInput = new PlayerInput(travelController);
 
-            for (int y = 0; y < 3; y++)
-                playerInput.AddPlayerControllerAction(new PlayerControllerAction(PlayerControllerType.TravelController, "Move", WorldBlock.WorldBlockSide.Up));
+            //for (int x = 0; x < 6; x++)
+            //    playerInput.AddPlayerControllerAction(new PlayerControllerAction(PlayerControllerType.TravelController, "Move", WorldBlock.WorldBlockSide.Right));
 
-            playerInput.UpdateAll();
+            //for (int y = 0; y < 3; y++)
+            //    playerInput.AddPlayerControllerAction(new PlayerControllerAction(PlayerControllerType.TravelController, "Move", WorldBlock.WorldBlockSide.Up));
 
-            Log.print(travelController.Camp.GetWorldPosition());
+            //playerInput.UpdateAll();
+
+            //Log.print(travelController.Camp.GetWorldPosition());
 
         }
     }
@@ -89,6 +94,20 @@ namespace AvorilConsole
         // Ядро (тёмное(0) и кровавое(1))
         public int Core { get; }
 
+        public override string ToString()
+        {
+            return AoD.ToString() + Stand.ToString() + Core.ToString();
+        }
+
+        public static AttackStructure ToAttackStructure(string _AttackStructure)
+        {
+            int _AoD = int.Parse(_AttackStructure[0].ToString());
+            int _Stand = int.Parse(_AttackStructure[1].ToString());
+            int _Core = int.Parse(_AttackStructure[2].ToString());
+
+            var attackStructure = new AttackStructure(_AoD,_Stand,_Core);
+            return attackStructure;
+        }
     }
 
     public class AttackInfo
@@ -118,6 +137,7 @@ namespace AvorilConsole
         Couple<AttackStructure,AttackInfo> DoAttack();
         List<EmmitableEffect> GetEffects(string cas, Couple<AttackInfo, ILifeEntity> _Myself, AttackInfo _Oneself);
         void AddEffects(List<EmmitableEffect> _Effects);
+        void ComputeDamage(AttackInfo _EnemyAttackInfo);
 
     }
 
@@ -152,20 +172,24 @@ namespace AvorilConsole
 
     public class BattleController : BaseController
     {
-        public BattleController(Camp _Camp, BaseEnemy _Enemy):base(_Camp)
+        public BattleController(Camp _Camp, LinkedList<BaseEnemy> _Enemies):base(_Camp)
         {
-            Enemy = _Enemy;
+            Type = PlayerControllerType.BattleController;
+            
+            if (_Enemies == null || _Enemies.Count == 0)
+                throw new System.Exception("Activated Battlecontroller without BaseEnemies");
+
+            Enemies = _Enemies;
+            NextEnemy = Enemies.First;
         }
 
-        
-        private BaseEnemy Enemy;
-        
+        // Список врагов в событии
+        private LinkedList<BaseEnemy> Enemies;
+        // Следующий враг
+        private LinkedListNode<BaseEnemy> NextEnemy;
 
-        public override void DoCommand(PlayerControllerAction action)
-        {
-            throw new NotImplementedException();
-        }
 
+        
         protected override void CallPIToChangeController(IPlayerController newPlayerController)
         {
             PlayerInput.Instance.ChangePlayerController(new TravelController(Camp));
@@ -173,7 +197,70 @@ namespace AvorilConsole
 
         protected override Dictionary<string, ControllerActionDelegate> InitializeCommands()
         {
-            throw new NotImplementedException();
+            var _Commands = new Dictionary<string, ControllerActionDelegate>();
+            _Commands.Add("DoBattle", DoBattle);
+
+            return _Commands;
+        }
+        
+        // Compute attack action between hero and enemy (null argument)
+        private void DoBattle(object argument)
+        {
+            var hero = Camp.Hero;
+
+            var enemy = NextEnemy.Value;
+            // Меняем противника для следующего хода
+            NextEnemy = NextEnemy.Next;
+            // Проверка на конец списка
+            if (NextEnemy == null)
+                NextEnemy = Enemies.First;
+
+            // Couple<AttackStructure(struct), AttackInfo(class)>
+            var heroAttack = hero.DoAttack();
+            var enemyAttack = enemy.DoAttack();
+
+            var casforhero = ComputeAttackString(heroAttack.a, enemyAttack.a);
+            var casforenemy = ComputeAttackString(enemyAttack.a, heroAttack.a);
+
+            var emmitableEffectsForEnemy = hero.GetEffects(casforhero, new Couple<AttackInfo, ILifeEntity>(heroAttack.b, hero), enemyAttack.b);
+            var emmitableEffectsForHero = enemy.GetEffects(casforenemy, new Couple<AttackInfo, ILifeEntity>(enemyAttack.b, enemy), heroAttack.b);
+
+            hero.AddEffects(emmitableEffectsForHero);
+            enemy.AddEffects(emmitableEffectsForEnemy);
+
+            hero.ComputeDamage(enemyAttack.b);
+            enemy.ComputeDamage(heroAttack.b);
+
+            // Завершение боевого хода
+            hero.BattleTurn();
+            enemy.BattleTurn();
+
+            // Смерть героя
+            if(hero.Health <= 0)
+            {
+                Log.print("Hero health is zero");
+            }
+
+            // Смерть врага
+            if(enemy.Health <= 0)
+            {
+                Log.print(enemy.GetInstanceID() + ": is Dead");
+                Enemies.Remove(enemy);
+
+                // Если все противники уничтожены
+                if(Enemies.Count == 0)
+                {
+                    CallPIToChangeController(new TravelController(Camp));
+                }
+            }
+
+        }
+
+        private string ComputeAttackString(AttackStructure _Myself,AttackStructure _Oneself)
+        {
+            var cas = _Myself.ToString() + _Oneself.ToString();
+
+            return cas;
         }
     }
 
@@ -198,13 +285,93 @@ namespace AvorilConsole
         {
             var couple = base.DoAttack();
 
+            NextAttack = Attacks[attackIndex];
             attackIndex++;
             if (attackIndex >= Attacks.Count)
                 attackIndex = 0;
-
-            NextAttack = Attacks[attackIndex];
-
+            
             return couple;
         }
+    }
+
+    //
+    //--------------------------------------------------------- I N V E N T O R Y ----------------------------------------------
+    //
+
+    public class Inventory
+    {
+        public Inventory(List<Couple<int,int>> _IDandCount)
+        {
+            // Число 12 взято из записей о разработке (12 предметов на 36 видов атак)
+            Items = new Item[12];
+
+            if (_IDandCount.Count > 12 || _IDandCount.Count == 0)
+                throw new System.Exception("_ItemsID count in inventory constructor is larger 12 or equal 0");
+
+            // Добавление предметов в массив
+            for (int i = 0; i < _IDandCount.Count; i++)
+            {
+                var couple = _IDandCount[i];
+                var newItem = ItemFactory.CreateItem(couple.a, couple.b);
+
+                Items[i] = newItem;
+            }
+
+        }
+
+        /// <summary>
+        /// Нельзя изменять элементы массива из вне
+        /// </summary>
+        public Item[] Items;
+
+        // Возвращает null, если Item был вставлен, иначе возвращается сам предмет, однако Count может изменится
+        public Item InsertItem(Item _NewItem)
+        {
+            for(int i = 0; i < Items.Length; i++)
+            {
+                var inventoryItem = Items[i];
+
+                // Если ячейка пуста вставляем предмет
+                if(inventoryItem == null)
+                {
+                    Items[i] = _NewItem;
+                    return null;
+                }
+
+                // Если совпал ID
+                if(inventoryItem.ID == _NewItem.ID)
+                {
+                    // Попытка добавить хотя бы часть предмета
+                    _NewItem.Count = inventoryItem.Insert(_NewItem.Count);
+
+                    // Предмет был успешно добавлен
+                    if(_NewItem.Count == 0)
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            // Если предмет был хотя бы частично добавлен
+            return _NewItem;
+        }
+
+        public Item RemoveItem(int _Index)
+        {
+            if (_Index < 0 || _Index > 11)
+                throw new System.ArgumentOutOfRangeException("RemoveItem index is below 0 or larger 11");
+
+            var item = Items[_Index];
+            Items[_Index] = null;
+
+            return item;
+        }
+
+    }
+
+    // Сущность, которая имеет инвентарь
+    public interface IInventoryEntity
+    {
+        Inventory Inventory { get; }
     }
 }
