@@ -1,2 +1,2 @@
 # AvorilConsole
-Avoril code based on .Net Console / C# 
+Code for game based on .Net Console / C#
